@@ -15,6 +15,15 @@ from read_json_mod import *
 from scipy.linalg import svd
 from lin_trans import *
 
+#TODO
+#
+#1) Ask about square matrices issue
+#2) Ask about Z dimension
+#3) I'm I on the right path in general?
+#4) Why is this wrapping?
+#5) Dividing by w, where does w come from?
+
+
 #def solve_svd(A,b):
 #    # compute svd of A
 #    U,s,Vh = svd(A)
