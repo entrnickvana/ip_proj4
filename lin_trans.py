@@ -26,6 +26,16 @@ def linear_transformation(src, A):
     indices = x + N*y
     return np.take(src, indices, mode='wrap')
 
+def lt_mod(src, A):
+    M, N = src.shape
+    points = np.mgrid[0:N, 0:M].reshape((2, M*N))
+    points = np.vstack([points, np.ones(points.shape[1])])
+    new_points = np.linalg.inv(A).dot(points).round().astype(int)
+    x, y, z = new_points.reshape((3, M, N), order='F')
+    indices = x + N*y
+    #return np.take(src, indices, mode='wrap')
+    return np.take(src, indices)
+
 
 
 

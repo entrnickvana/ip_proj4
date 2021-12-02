@@ -13,6 +13,7 @@ from skimage.morphology import extrema
 from skimage.exposure import histogram
 from read_json_mod import *
 from scipy.linalg import svd
+from lin_trans import *
 
 #def solve_svd(A,b):
 #    # compute svd of A
@@ -27,13 +28,18 @@ from scipy.linalg import svd
 #    return x
 #
 
+def color2grey(img):
+    b = [.3, .6, .1]
+    return np.dot(img[...,:3], b)
+
+
 def my_svd(A,b):
     # compute svd of A
     U,s,Vh = svd(A)
     c = np.dot(U.T,b)
     w = np.dot(np.diag(1/s),c)
     x = np.dot(Vh.conj().T,w)
-    return x
+    return x, w
 
 
 #The images are ['w0.ppm', 'w1.ppm', 'w2c.ppm', 'w3c.ppm']
@@ -64,6 +70,19 @@ def my_svd(A,b):
 # Start with a warping from images with least correspndences between w3c.ppm and w0c.ppm
 
 #corra, corrb = read_json()
+
+# Read in images
+to_warp = color2grey(io.imread('w3c.png'))
+target = color2grey(io.imread('w0c.png'))
+#to_warp = io.imread('w3c.png')
+#target = io.imread('w0c.png')
+
+#plt.subplot(1,2,1)
+#plt.imshow(to_warp)
+#plt.subplot(1,2,2)
+#plt.imshow(target)
+#plt.show()
+
 corrs = read_json()
 
 print("Corrs:")
@@ -94,15 +113,15 @@ print("xp, yp:")
 print(xp)
 print(yp)
 
-x = np.asarray(x)
-y = np.asarray(y)
-xp = np.asarray(xp)
-yp = np.asarray(yp)
+#x = np.asarray(x)
+#y = np.asarray(y)
+#xp = np.asarray(xp)
+#yp = np.asarray(yp)
 
-#x = np.asarray(x[0:4])
-#y = np.asarray(y[0:4])
-#xp = np.asarray(xp[0:4])
-#yp = np.asarray(yp[0:4])
+x = np.asarray(x[0:4])
+y = np.asarray(y[0:4])
+xp = np.asarray(xp[0:4])
+yp = np.asarray(yp[0:4])
 
 xxp = x*xp
 yxp = y*xp
@@ -119,7 +138,19 @@ q2 = np.c_[q2, xyp, yyp]
 A = np.r_[q1, q2]
 
 b = np.r_[xp, yp]
-P = my_svd(A, b)
+P, w = my_svd(A, b)
+P = np.r_[P, 1]
+P = P.reshape((3,3))
+print('P:')
+print(P)
+
+
+#warped = linear_transformation(to_warp, P)
+warped = lt_mod(to_warp, P)
+warped_norm = warped/w
+
+
+
 
 
 
