@@ -12,7 +12,8 @@ from skimage.segmentation import flood, flood_fill
 from skimage.morphology import extrema
 from skimage.exposure import histogram
 from read_json_mod import *
-from scipy.linalg import svd
+#from scipy.linalg import svd
+from numpy.linalg import svd
 from lin_trans import *
 
 #TODO
@@ -41,14 +42,36 @@ def color2grey(img):
     b = [.3, .6, .1]
     return np.dot(img[...,:3], b)
 
+def map_xy(x, y, P):
+    p11 = P[0, 0]
+    p12 = P[0, 1]
+    p13 = P[0, 2]
+    p21 = P[1, 0]
+    p22 = P[1, 1]
+    p23 = P[1, 2]
+    p31 = P[2, 0]
+    p32 = P[2, 1]
+    p33 = 1
 
-def my_svd(A,b):
+    xp_float = (p11*x + p12*y + p13)/(p31*x + p32*y + 1)
+    yp_float = (p21*x + p22*y + p23)/(p31*x + p32*y + 1)
+    print(f"xp float: {xp_float}")
+    print(f"yp float: {yp_float}")    
+    xp = int(xp_float)
+    yp = int(yp_float)    
+    print(f"xp int: {xp}")
+    print(f"yp int: {yp}")
+    return xp, yp
+    
+
+
+def my_svd(A,b, full_matrices=False):
     # compute svd of A
     U,s,Vh = svd(A)
     c = np.dot(U.T,b)
     w = np.dot(np.diag(1/s),c)
     x = np.dot(Vh.conj().T,w)
-    return x, w
+    return x, s
 
 
 #The images are ['w0.ppm', 'w1.ppm', 'w2c.ppm', 'w3c.ppm']
@@ -123,7 +146,7 @@ print(xp)
 print(yp)
 
 #x = np.asarray(x)
-#y = np.asarray(y)
+#py = np.asarray(y)
 #xp = np.asarray(xp)
 #yp = np.asarray(yp)
 
@@ -153,10 +176,59 @@ P = P.reshape((3,3))
 print('P:')
 print(P)
 
+x_new = np.zeros(len(x))
+y_new = np.zeros(len(y))
+
+### get four corners
+
+# top left
+TL = map_xy(0, 0, P)
+# top right
+TR = map_xy(to_warp.shape[1], 0, P)
+# bottom left
+BL = map_xy(0, to_warp.shape[0], P)
+# bottom right
+BR = map_xy(to_warp.shape[1], to_warp.shape[0], P)
+
+# Find out how big polygon is to make a canvas
+x_len = abs(max([TL[0], TR[0], BL[0], BR[0]]) - min([TL[0], TR[0], BL[0], BR[0]]))
+y_len = abs(max([TL[1], TR[1], BL[1], BR[1]]) - min([TL[1], TR[1], BL[1], BR[1]]))
+
+
+
+canvas = np.zeros((3*y_len, 3*x_len))
+poly_canvas = np.array(canvas)
+orig_x = x_len
+orig_y = y_len
+
+print(f"x_len: {x_len}, canvas x_len: {canvas.shape[1]}, poly orig: orig: {orig_x}")
+print(f"y_len: {y_len}, canvas y_len: {canvas.shape[0]}, poly orig: orig: {orig_y}")
+
+#canvas[orig_y + TL[1], orig_x + TL[0]] = to_warp[0,0]
+#canvas[orig_y + TR[1], orig_x + TR[0]] = to_warp[0,to_warp.shape[1]-1]
+#canvas[orig_y + BL[1], orig_x + BL[0]] = to_warp[to_warp.shape[0]-1, 0]
+#canvas[orig_y + BR[1], orig_x + BR[0]] = to_warp[to_warp.shape[0]-1, to_warp.shape[1]-1]
+
+df = 4
+
+poly_canvas[orig_y + TL[1]-df:orig_y + TL[1]+df, orig_x + TL[0]-df: orig_x + TL[0]+df] = 255
+poly_canvas[orig_y + TR[1]-df:orig_y + TR[1]+df, orig_x + TR[0]-df:orig_x + TR[0]+df] = 255
+poly_canvas[orig_y + BL[1]-df:orig_y + BL[1]+df, orig_x + BL[0]-df: orig_x + BL[0]+df] = 255
+poly_canvas[orig_y + BR[1]-df:orig_y + BR[1]+df, orig_x + BR[0]-df:orig_x + BR[0]+df] = 255
+
+
+
+## get whole new mapping
+#for ii in range(len(x)):
+#     = map_xy(x, y, P)
+
+code.interact(local=locals())    
+
 
 #warped = linear_transformation(to_warp, P)
-warped = lt_mod(to_warp, P)
-warped_norm = warped/w
+#warped = lt_mod(to_warp, P)
+#
+#warped_norm = warped/w
 
 
 
@@ -186,7 +258,7 @@ warped_norm = warped/w
 # print(x)
 
 
-code.interact(local=locals())
+
             
 
 
