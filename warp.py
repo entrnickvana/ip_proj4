@@ -34,7 +34,7 @@ from lin_trans import *
 #    # diag(s) Vh x = c <=> Vh x = diag(1/s) c = w (trivial inversion of a diagonal matrix)
 #    w = np.dot(np.diag(1/s),c)
 #    # Vh x = w <=> x = Vh.H w (where .H stands for hermitian = conjugate transpose)
-#    x = np.dot(Vh.conj().T,w)
+#    x = np.dot(Vh.conj().T,w) to_warp[ii][jj]
 #    return x
 #
 
@@ -55,12 +55,12 @@ def map_xy(x, y, P):
 
     xp_float = (p11*x + p12*y + p13)/(p31*x + p32*y + 1)
     yp_float = (p21*x + p22*y + p23)/(p31*x + p32*y + 1)
-    print(f"xp float: {xp_float}")
-    print(f"yp float: {yp_float}")    
+    #print(f"xp float: {xp_float}")
+    #print(f"yp float: {yp_float}")    
     xp = int(xp_float)
     yp = int(yp_float)    
-    print(f"xp int: {xp}")
-    print(f"yp int: {yp}")
+    #print(f"xp int: {xp}")
+    #print(f"yp int: {yp}")
     return xp, yp
     
 
@@ -216,6 +216,19 @@ poly_canvas[orig_y + TR[1]-df:orig_y + TR[1]+df, orig_x + TR[0]-df:orig_x + TR[0
 poly_canvas[orig_y + BL[1]-df:orig_y + BL[1]+df, orig_x + BL[0]-df: orig_x + BL[0]+df] = 255
 poly_canvas[orig_y + BR[1]-df:orig_y + BR[1]+df, orig_x + BR[0]-df:orig_x + BR[0]+df] = 255
 
+
+tar_len_x = to_warp.shape[1]
+tar_len_y = to_warp.shape[0]
+
+for ii in range(tar_len_x):
+    for jj in range(tar_len_y):
+
+        #get new transformed coordinate
+        new_tmp_cord = map_xy(ii, jj, P)
+        canvas[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[tar_len_y - jj -1, tar_len_x - ii -1]
+        #canvas[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = 255
+        if(ii % 100 == 0 and jj % 400 == 0):
+            code.interact(local=locals())    
 
 
 ## get whole new mapping
