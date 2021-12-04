@@ -16,15 +16,6 @@ from read_json_mod import *
 from numpy.linalg import svd
 from lin_trans import *
 
-#TODO
-#
-#1) Ask about square matrices issue
-#2) Ask about Z dimension
-#3) I'm I on the right path in general?
-#4) Why is this wrapping?
-#5) Dividing by w, where does w come from?
-
-
 #def solve_svd(A,b):
 #    # compute svd of A
 #    U,s,Vh = svd(A)
@@ -62,7 +53,6 @@ def map_xy(x, y, P):
     #print(f"xp int: {xp}")
     #print(f"yp int: {yp}")
     return xp, yp
-    
 
 
 def my_svd(A,b, full_matrices=False):
@@ -71,7 +61,13 @@ def my_svd(A,b, full_matrices=False):
     c = np.dot(U.T,b)
     w = np.dot(np.diag(1/s),c)
     x = np.dot(Vh.conj().T,w)
-    return x, s
+    return x
+
+def get_T(A,b):
+    u, s, vh = svd(A, full_matrices=False)
+    w = np.diag(1/s)
+    P = vh.T @ w @ u.T @ b
+    return P
 
 
 #The images are ['w0.ppm', 'w1.ppm', 'w2c.ppm', 'w3c.ppm']
@@ -99,30 +95,14 @@ def my_svd(A,b, full_matrices=False):
 #(12, 2)
 #The output file is mosaic_out.tif
 
-# Start with a warping from images with least correspndences between w3c.ppm and w0c.ppm
-
-#corra, corrb = read_json()
-
 # Read in images
 to_warp = color2grey(io.imread('w3c.png'))
 target = color2grey(io.imread('w0c.png'))
-#to_warp = io.imread('w3c.png')
-#target = io.imread('w0c.png')
-
-#plt.subplot(1,2,1)
-#plt.imshow(to_warp)
-#plt.subplot(1,2,2)
-#plt.imshow(target)
-#plt.show()
 
 corrs = read_json()
 
 print("Corrs:")
 print(corrs)
-
-#for ii in range(len(corra)):
-#    for jj in range(len(corra)):
-#        print(f"IDX: {ii}  {corra[ii]}  ")
 
 # manually compare w3c.png and w0c.png
 points_anchor = corrs[0][1][1] # target of warp
@@ -145,15 +125,15 @@ print("xp, yp:")
 print(xp)
 print(yp)
 
-#x = np.asarray(x)
-#py = np.asarray(y)
-#xp = np.asarray(xp)
-#yp = np.asarray(yp)
+x = np.asarray(x)
+py = np.asarray(y)
+xp = np.asarray(xp)
+yp = np.asarray(yp)
 
-x = np.asarray(x[0:4])
-y = np.asarray(y[0:4])
-xp = np.asarray(xp[0:4])
-yp = np.asarray(yp[0:4])
+#x = np.asarray(x[0:4])
+#y = np.asarray(y[0:4])
+#xp = np.asarray(xp[0:4])
+#yp = np.asarray(yp[0:4])
 
 xxp = x*xp
 yxp = y*xp
@@ -170,7 +150,8 @@ q2 = np.c_[q2, xyp, yyp]
 A = np.r_[q1, q2]
 
 b = np.r_[xp, yp]
-P, w = my_svd(A, b)
+code.interact(local=locals())
+P = get_T(A, b)
 P = np.r_[P, 1]
 P = P.reshape((3,3))
 print('P:')
@@ -226,28 +207,12 @@ for ii in range(tar_len_x):
         #get new transformed coordinate
         new_tmp_cord = map_xy(ii, jj, P)
         canvas[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[tar_len_y - jj -1, tar_len_x - ii -1]
-        #canvas[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = 255
-        if(ii % 100 == 0 and jj % 400 == 0):
-            code.interact(local=locals())    
 
-
-## get whole new mapping
-#for ii in range(len(x)):
-#     = map_xy(x, y, P)
+plt.show()
+plt.imshow(canvas, cmap='gray')
+plt.show()
 
 code.interact(local=locals())    
-
-
-#warped = linear_transformation(to_warp, P)
-#warped = lt_mod(to_warp, P)
-#
-#warped_norm = warped/w
-
-
-
-
-
-
 
 ## example linear system to test with
 #
