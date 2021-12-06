@@ -282,8 +282,11 @@ for ii in range(canvas.shape[1]-1):
                     #print(f"Poly idx x: {ii} idx y: {jj}")                    
                     #print(f"Grabbing index y: {backward_cord[1]} x: {backward_cord[0]}")
                     #print(f"\n\n")
-                    reverse_canvas[jj, ii] = to_warp[backward_cord[1], backward_cord[0]]                
-            
+                    reverse_canvas[jj, ii] = to_warp[backward_cord[1], backward_cord[0]]
+                else:
+                    reverse_canvas[jj, ii] = 0
+            else:
+                reverse_canvas[jj, ii] = 0
 
             final_mask[jj,ii] = 64 
             #if(jj % 20 == 0):
