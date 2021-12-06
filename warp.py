@@ -2,6 +2,7 @@ import code
 import os
 import skimage
 from skimage import io
+import scipy
 from scipy import fftpack
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,6 +15,7 @@ from skimage.exposure import histogram
 from read_json_mod import *
 #from scipy.linalg import svd
 from numpy.linalg import svd
+from poly_perim import *
 #from lin_trans import *
 
 #The images are ['w0.ppm', 'w1.ppm', 'w2c.ppm', 'w3c.ppm']
@@ -67,6 +69,14 @@ def map_xy(x, y, P):
     #print(f"yp int: {yp}")
     return xp, yp
 
+def conv_poly(poly):
+    new_poly = [[],[],[],[]]
+    new_poly[0] = [poly[0][1], poly[0][0]] 
+    new_poly[1] = [poly[1][1], poly[1][0]] 
+    new_poly[2] = [poly[2][1], poly[2][0]] 
+    new_poly[3] = [poly[3][1], poly[3][0]]
+    return new_poly
+
 
 def my_svd(A,b, full_matrices=False):
     # compute svd of A
@@ -97,16 +107,16 @@ def get_poly_dim(to_warp, P):
     # Find out how big polygon is to make a canvas
     x_len = abs(max([TL[0], TR[0], BL[0], BR[0]]) - min([TL[0], TR[0], BL[0], BR[0]]))
     y_len = abs(max([TL[1], TR[1], BL[1], BR[1]]) - min([TL[1], TR[1], BL[1], BR[1]]))
-    poly = [[TL, TR], [BL, BR]]
+    poly = [TL, TR, BL, BR]
 
     return poly, x_len, y_len
 
 def build_canvas(to_warp, target, P, poly, dbg=0):
 
-    TL = poly[0][0]
-    TR = poly[0][1]
-    BL = poly[1][0]
-    BR = poly[1][1]
+    TL = poly[0]
+    TR = poly[1]
+    BL = poly[2]
+    BR = poly[3]
     
     poly, x_len, y_len = get_poly_dim(to_warp, P)
 
@@ -123,10 +133,14 @@ def build_canvas(to_warp, target, P, poly, dbg=0):
         
         poly_canvas = np.array(canvas)
         df = 4
+
+        #poly_canvas[orig_y: orig_y + target.shape[0], orig_x: orig_x + target.shape[1]] = target
         poly_canvas[orig_y + TL[1]-df:orig_y + TL[1]+df, orig_x + TL[0]-df: orig_x + TL[0]+df] = 255
         poly_canvas[orig_y + TR[1]-df:orig_y + TR[1]+df, orig_x + TR[0]-df:orig_x + TR[0]+df] = 255
         poly_canvas[orig_y + BL[1]-df:orig_y + BL[1]+df, orig_x + BL[0]-df: orig_x + BL[0]+df] = 255
         poly_canvas[orig_y + BR[1]-df:orig_y + BR[1]+df, orig_x + BR[0]-df:orig_x + BR[0]+df] = 255
+
+
 
         return poly_canvas
     return canvas
@@ -171,8 +185,8 @@ def get_transform(points, points_p):
     # Stack top and bottom half of A
     A = np.r_[q1, q2]
 
-    # Stack to create b
-    b = np.r_[xp, yp]
+    # Stack to create byy
+    b = np.r_[-1*xp, -1*yp]
 
     # call svd to get optimal solution P
     P = get_P(A, b)
@@ -181,6 +195,7 @@ def get_transform(points, points_p):
     P = np.r_[P, 1]
     P = P.reshape((3,3))
 
+    
     return P
 
 
@@ -198,10 +213,107 @@ points = corrs[0][0][1] # to warp
 # Get tranformation matrix P
 P = get_transform(points, points_p)
 
+# Get backward transform matrix
+P_back = get_transform(points_p, points)
+
 # Get a representation of the polygon of the to_warp image
 poly, x_len, y_len = get_poly_dim(to_warp, P)
+poly_yx = conv_poly(poly)
 
-canvas = build_canvas(to_warp, target, P, poly)
+
+canvas = build_canvas(to_warp, target, P, poly, dbg = 0)
+canvas_poly = np.array(canvas)
+
+shift_poly = np.array(poly)
+shift_poly[0] = [shift_poly[0][0] + x_len, shift_poly[0][1] + y_len]
+shift_poly[1] = [shift_poly[1][0] + x_len, shift_poly[1][1] + y_len]
+shift_poly[2] = [shift_poly[2][0] + x_len, shift_poly[2][1] + y_len]
+shift_poly[3] = [shift_poly[3][0] + x_len, shift_poly[3][1] + y_len]
+
+shift_yx = conv_poly(shift_poly)
+
+tar_len_x = to_warp.shape[1]
+tar_len_y = to_warp.shape[0]
+
+orig_x = x_len
+orig_y = y_len
+
+
+for ii in range(tar_len_x):
+    for jj in range(tar_len_y):
+
+        #get new transformed coordinate
+        new_tmp_cord = map_xy(ii, jj, P)
+        canvas_poly[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = 255        
+        #canvas_poly[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[tar_len_y - jj -1, tar_len_x - ii -1]
+
+
+mask = np.array(canvas_poly)
+mask[mask > 0] = 255
+
+k_sz = 11
+
+kern = np.full((k_sz, k_sz), 1/(k_sz*k_sz))
+polygon = scipy.ndimage.filters.convolve(mask, kern)
+final_mask = np.array(polygon)
+final_mask[final_mask > 0] = 255
+H, edges = np.histogram(polygon, bins = 256)
+
+#for ii in range(canvas.shape[0]):
+#    for jj in range(canvas.shape[0]):
+#        if()
+    
+
+
+code.interact(local=locals())
+
+exit()
+
+
+
+# Test transform by mapping to_warp correspondences to target
+x = []
+y = []
+xp = []
+yp = []
+
+for ii in range(len(points)):
+    x.append(points[ii][0])
+    y.append(points[ii][1])
+    xp.append(points_p[ii][0])
+    yp.append(points_p[ii][1])
+
+#  convert to numpy
+x = np.asarray(x)
+y = np.asarray(y)
+xp = np.asarray(xp)
+yp = np.asarray(yp)
+
+
+c0 = map_xy(x[0], y[0], P)
+#c1 = map_xy(x[1], y[1], P)
+#c2 = map_xy(x[2], y[2], P)
+#c3 = map_xy(x[3], y[3], P)
+#c4 = map_xy(x[4], y[4], P)
+#c5 = map_xy(x[5], y[5], P)
+
+#c0 = -1*c0
+#c1 = -1*c1
+#c2 = -1*c2
+#c3 = -1*c3
+#c4 = -1*c4
+#c5 = -1*c5
+
+
+
+sz = 2
+tst_target = np.array(target)
+tst_target[c0[1]-sz:c0[1]+sz , c0[0]-sz:c0[0]+sz] = 0
+#tst_target[c1[1]-sz:c1[1]+sz , c1[0]-sz:c1[0]+sz] = 0
+#tst_target[c2[1]-sz:c2[1]+sz , c2[0]-sz:c2[0]+sz] = 0
+#tst_target[c3[1]-sz:c3[1]+sz , c3[0]-sz:c3[0]+sz] = 0
+#tst_target[c4[1]-sz:c4[1]+sz , c4[0]-sz:c4[0]+sz] = 0
+#tst_target[c5[1]-sz:c5[1]+sz , c5[0]-sz:c5[0]+sz] = 0
 
 # get_transform
 # draw_poly
