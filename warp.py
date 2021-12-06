@@ -16,6 +16,7 @@ from read_json_mod import *
 #from scipy.linalg import svd
 from numpy.linalg import svd
 from poly_perim import *
+import json
 #from lin_trans import *
 
 #The images are ['w0.ppm', 'w1.ppm', 'w2c.ppm', 'w3c.ppm']
@@ -198,16 +199,71 @@ def get_transform(points, points_p):
     return P
 
 
-# Read in images
-to_warp = color2grey(io.imread('w3c.png'))
-target = color2grey(io.imread('w0c.png'))
+my_img_TR = color2grey(io.imread("office_png/TR.png"))
+my_img_C  = color2grey(io.imread("office_png/C.png"))
+my_img_B  = color2grey(io.imread("office_png/B.png"))
+my_img_TL = color2grey(io.imread("office_png/TL.png"))
+my_img_BR = color2grey(io.imread("office_png/BR.png"))
+
+#with open("shelf_params.json") as f:
+#    data = json.load(f)
+#
+#tst_corrs = data["Correspondences"]
+#
+#code.interact(local=locals())
+
+#plt.subplot(1,2,1)
+#plt.imshow( my_img_TR, cmap='gray')
+#plt.subplot(1,2,2)
+#plt.imshow( my_img_C , cmap='gray')
+#plt.show()
+#
+#plt.subplot(1,2,1)
+#plt.imshow( my_img_B, cmap='gray')
+#plt.subplot(1,2,2)
+#plt.imshow( my_img_C , cmap='gray')
+#plt.show()
+#
+#plt.subplot(1,2,1)
+#plt.imshow( my_img_TL, cmap='gray')
+#plt.subplot(1,2,2)
+#plt.imshow( my_img_C , cmap='gray')
+#plt.show()
+#
+#plt.subplot(1,2,1)
+#plt.imshow( my_img_BR, cmap='gray')
+#plt.subplot(1,2,2)
+#plt.imshow( my_img_C , cmap='gray')
+#plt.show()
+
+## Read in images
+#to_warp = color2grey(io.imread('w3c.png'))
+#target = color2grey(io.imread('w0c.png'))
+
+## My images
+to_warp = color2grey(io.imread('TR.png'))
+target = color2grey(io.imread('C.png'))
+
+## Set 2
+#to_warp = color2grey(io.imread('w1c.png'))
+#target = color2grey(io.imread('w0c.png'))
 
 # get correspondences
 corrs = read_json()
 
-# manually compare w3c.png and w0c.png
+
+## manually compare w3c.png and w0c.png set 1
 points_p = corrs[0][1][1] # target of warp
 points = corrs[0][0][1] # to warp
+
+## manually compare my_images
+points = corrs[0][1][1] # target of warp
+points_p = corrs[0][0][1] # to warp
+
+## manually compare w3c.png and w0c.png set 2
+#points = corrs[1][1][1] # image to warp
+#points_p = corrs[1][0][1] # anchor
+
 
 # Get tranformation matrix P
 P = get_transform(points, points_p)
@@ -219,17 +275,8 @@ P_back = get_transform(points_p, points)
 poly, x_len, y_len = get_poly_dim(to_warp, P)
 poly_yx = conv_poly(poly)
 
-
 canvas = build_canvas(to_warp, target, P, poly, dbg = 0)
 canvas_poly = np.array(canvas)
-
-shift_poly = np.array(poly)
-shift_poly[0] = [shift_poly[0][0] + x_len, shift_poly[0][1] + y_len]
-shift_poly[1] = [shift_poly[1][0] + x_len, shift_poly[1][1] + y_len]
-shift_poly[2] = [shift_poly[2][0] + x_len, shift_poly[2][1] + y_len]
-shift_poly[3] = [shift_poly[3][0] + x_len, shift_poly[3][1] + y_len]
-
-shift_yx = conv_poly(shift_poly)
 
 tar_len_x = to_warp.shape[1]
 tar_len_y = to_warp.shape[0]

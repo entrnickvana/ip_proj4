@@ -7,7 +7,10 @@ def read_json():
   
   with open("mosaic_params.json") as f:
       data = json.load(f)
-  
+
+  with open("shelf_params.json") as f:
+      data = json.load(f)
+      
   #print(f"The images are {data['Input files']}")
   corrs = data["Correspondences"]
   #print(f"There are {len(corrs)} sets of correspondences")
