@@ -195,7 +195,6 @@ def get_transform(points, points_p):
     P = np.r_[P, 1]
     P = P.reshape((3,3))
 
-    
     return P
 
 
@@ -238,6 +237,9 @@ tar_len_y = to_warp.shape[0]
 orig_x = x_len
 orig_y = y_len
 
+tst_canvas1 = np.array(canvas)
+tst_canvas2 = np.array(canvas)
+
 
 for ii in range(tar_len_x):
     for jj in range(tar_len_y):
@@ -245,9 +247,10 @@ for ii in range(tar_len_x):
         #get new transformed coordinate
         new_tmp_cord = map_xy(ii, jj, P)
         canvas_poly[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = 255        
-        #canvas_poly[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[tar_len_y - jj -1, tar_len_x - ii -1]
+        tst_canvas1[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[tar_len_y - jj -1, tar_len_x - ii -1]
+        tst_canvas2[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[jj, ii]        
 
-
+        
 mask = np.array(canvas_poly)
 mask[mask > 0] = 255
 
@@ -259,11 +262,32 @@ final_mask = np.array(polygon)
 final_mask[final_mask > 0] = 255
 H, edges = np.histogram(polygon, bins = 256)
 
-#for ii in range(canvas.shape[0]):
-#    for jj in range(canvas.shape[0]):
-#        if()
-    
+reverse_canvas = np.array(final_mask)
 
+tar_cpy = np.array(target)
+
+TL = map_xy(poly[0][0], poly[0][1], P_back)
+TR = map_xy(poly[1][0], poly[1][1], P_back)
+BR = map_xy(poly[2][0], poly[2][1], P_back)
+BL = map_xy(poly[3][0], poly[3][1], P_back)
+
+#code.interact(local=locals())
+
+for ii in range(canvas.shape[1]-1):
+    for jj in range(canvas.shape[0]-1):
+        if(final_mask[jj,ii] == 255):
+            backward_cord = map_xy(ii-orig_x-1, jj-orig_y-1, P_back)
+            if(backward_cord[0] >= 0 and backward_cord[1] >= 0):
+                if(backward_cord[0] < to_warp.shape[1] -1 and backward_cord[1] < to_warp.shape[0]-1):
+                    #print(f"Poly idx x: {ii} idx y: {jj}")                    
+                    #print(f"Grabbing index y: {backward_cord[1]} x: {backward_cord[0]}")
+                    #print(f"\n\n")
+                    reverse_canvas[jj, ii] = to_warp[backward_cord[1], backward_cord[0]]                
+            
+
+            final_mask[jj,ii] = 64 
+            #if(jj % 20 == 0):
+            #    code.interact(local=locals())            
 
 code.interact(local=locals())
 
