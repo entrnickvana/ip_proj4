@@ -212,18 +212,18 @@ my_img_BR = color2grey(io.imread("office_png/BR.png"))
 #
 #code.interact(local=locals())
 
-plt.subplot(1,2,1)
-plt.imshow( my_img_TR, cmap='gray')
-plt.subplot(1,2,2)
-plt.imshow( my_img_C , cmap='gray')
-plt.show()
+# plt.subplot(1,2,1)
+# plt.imshow( my_img_TR, cmap='gray')
+# plt.subplot(1,2,2)
+# plt.imshow( my_img_C , cmap='gray')
+# plt.show()
 
 #plt.subplot(1,2,1)
 #plt.imshow( my_img_B, cmap='gray')
 #plt.subplot(1,2,2)
 #plt.imshow( my_img_C , cmap='gray')
 #plt.show()
-#
+
 #plt.subplot(1,2,1)
 #plt.imshow( my_img_TL, cmap='gray')
 #plt.subplot(1,2,2)
@@ -241,7 +241,7 @@ plt.show()
 #target = color2grey(io.imread('w0c.png'))
 
 ## My images
-to_warp = color2grey(io.imread('TR.png'))
+to_warp = color2grey(io.imread('B.png'))
 target = color2grey(io.imread('C.png'))
 
 ## Set 2
@@ -256,9 +256,14 @@ corrs = read_json()
 #points_p = corrs[0][1][1] 
 #points = corrs[0][0][1] # 
 
-## manually compare my_images
-points = corrs[0][0][1] # 
-points_p = corrs[0][1][1] #
+### manually compare my_images TR -> C
+#points = corrs[0][0][1] # 
+#points_p = corrs[0][1][1] #
+
+## manually compare my_images B -> C
+points = corrs[1][0][1] # 
+points_p = corrs[1][1][1] #
+
 
 ## manually compare w3c.png and w0c.png set 2
 #points = corrs[1][1][1] # image to warp
