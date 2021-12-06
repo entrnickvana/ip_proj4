@@ -212,12 +212,12 @@ my_img_BR = color2grey(io.imread("office_png/BR.png"))
 #
 #code.interact(local=locals())
 
-#plt.subplot(1,2,1)
-#plt.imshow( my_img_TR, cmap='gray')
-#plt.subplot(1,2,2)
-#plt.imshow( my_img_C , cmap='gray')
-#plt.show()
-#
+plt.subplot(1,2,1)
+plt.imshow( my_img_TR, cmap='gray')
+plt.subplot(1,2,2)
+plt.imshow( my_img_C , cmap='gray')
+plt.show()
+
 #plt.subplot(1,2,1)
 #plt.imshow( my_img_B, cmap='gray')
 #plt.subplot(1,2,2)
@@ -252,13 +252,13 @@ target = color2grey(io.imread('C.png'))
 corrs = read_json()
 
 
-## manually compare w3c.png and w0c.png set 1
-points_p = corrs[0][1][1] # target of warp
-points = corrs[0][0][1] # to warp
+### manually compare w3c.png and w0c.png set 1
+#points_p = corrs[0][1][1] 
+#points = corrs[0][0][1] # 
 
 ## manually compare my_images
-points = corrs[0][1][1] # target of warp
-points_p = corrs[0][0][1] # to warp
+points = corrs[0][0][1] # 
+points_p = corrs[0][1][1] #
 
 ## manually compare w3c.png and w0c.png set 2
 #points = corrs[1][1][1] # image to warp
