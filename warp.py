@@ -123,12 +123,15 @@ def build_canvas(to_warp, target, P, poly, dbg=0):
 
     tar_x_len = target.shape[1]
     tar_y_len = target.shape[0]
-    max_x_len = max([x_len, tar_x_len])
-    max_y_len = max([y_len, tar_y_len])    
+    #max_x_len = max([x_len, tar_x_len])
+    #max_y_len = max([y_len, tar_y_len])    
     
-    canvas = np.zeros((3*max_y_len, 3*max_x_len))
-    orig_x = x_len
-    orig_y = y_len
+    canvas = np.zeros((5*tar_y_len, 5*tar_x_len))
+    #orig_x = x_len
+    #orig_y = y_len
+    orig_x = 2*tar_x_len
+    orig_y = 2*tar_y_len
+    
 
     if( dbg == 1):
         
@@ -141,12 +144,8 @@ def build_canvas(to_warp, target, P, poly, dbg=0):
         poly_canvas[orig_y + BL[1]-df:orig_y + BL[1]+df, orig_x + BL[0]-df: orig_x + BL[0]+df] = 255
         poly_canvas[orig_y + BR[1]-df:orig_y + BR[1]+df, orig_x + BR[0]-df:orig_x + BR[0]+df] = 255
 
-
-
         return poly_canvas
     return canvas
-
-
 
 # get_forward_transform
 def get_transform(points, points_p):
@@ -198,97 +197,157 @@ def get_transform(points, points_p):
 
     return P
 
+def get_poly(target, to_warp, P, P_back,  canvas):
 
-my_img_TR = color2grey(io.imread("office_png/TR.png"))
-my_img_C  = color2grey(io.imread("office_png/C.png"))
-my_img_B  = color2grey(io.imread("office_png/B.png"))
-my_img_TL = color2grey(io.imread("office_png/TL.png"))
-my_img_BR = color2grey(io.imread("office_png/BR.png"))
+    orig_x = 2*target.shape[1]
+    orig_y = 2*target.shape[0]
 
-#with open("shelf_params.json") as f:
-#    data = json.load(f)
-#
-#tst_corrs = data["Correspondences"]
-#
-#code.interact(local=locals())
+    tar_len_x = target.shape[1]
+    tar_len_y = target.shape[0]
+    
+    #tst_canvas1 = np.array(canvas)
+    #tst_canvas2 = np.array(canvas)
 
-# plt.subplot(1,2,1)
-# plt.imshow( my_img_TR, cmap='gray')
-# plt.subplot(1,2,2)
-# plt.imshow( my_img_C , cmap='gray')
-# plt.show()
+    canvas_poly = np.array(canvas)
+    
+    for ii in range(tar_len_x):
+        for jj in range(tar_len_y):
+    
+            #get new transformed coordinate
+            new_tmp_cord = map_xy(ii, jj, P)
+            canvas_poly[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = 255        
+            #tst_canvas1[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[tar_len_y - jj -1, tar_len_x - ii -1]
+            #tst_canvas2[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[jj, ii]        
+    
+            
+    mask = np.array(canvas_poly)
+    mask[mask > 0] = 255
+    k_sz = 11
+    
+    kern = np.full((k_sz, k_sz), 1/(k_sz*k_sz))
+    polygon = scipy.ndimage.filters.convolve(mask, kern)
+    final_mask = np.array(polygon)
+    final_mask[final_mask > 0] = 255
 
-#plt.subplot(1,2,1)
-#plt.imshow( my_img_B, cmap='gray')
-#plt.subplot(1,2,2)
-#plt.imshow( my_img_C , cmap='gray')
-#plt.show()
+    reverse_canvas = np.array(final_mask)
 
-#plt.subplot(1,2,1)
-#plt.imshow( my_img_TL, cmap='gray')
-#plt.subplot(1,2,2)
-#plt.imshow( my_img_C , cmap='gray')
-#plt.show()
+    for ii in range(canvas.shape[1]-1):
+        for jj in range(canvas.shape[0]-1):
+            if(final_mask[jj,ii] == 255):
+                backward_cord = map_xy(ii-orig_x-1, jj-orig_y-1, P_back)
+                if(backward_cord[0] >= 0 and backward_cord[1] >= 0):
+                    if(backward_cord[0] < to_warp.shape[1] -1 and backward_cord[1] < to_warp.shape[0]-1):
+                        #print(f"Poly idx x: {ii} idx y: {jj}")                    
+                        #print(f"Grabbing index y: {backward_cord[1]} x: {backward_cord[0]}")
+                        #print(f"\n\n")
+                        reverse_canvas[jj, ii] = to_warp[backward_cord[1], backward_cord[0]]
+                    else:
+                        reverse_canvas[jj, ii] = 0
+                else:
+                    reverse_canvas[jj, ii] = 0
+    
+                #final_mask[jj,ii] = 64
+    
+    return reverse_canvas
+    
 
-#plt.subplot(1,2,1)
-#plt.imshow( my_img_BR, cmap='gray')
-#plt.subplot(1,2,2)
-#plt.imshow( my_img_C , cmap='gray')
-#plt.show()
-
-## Read in images
-#to_warp = color2grey(io.imread('w3c.png'))
-#target = color2grey(io.imread('w0c.png'))
-
-## My images
-to_warp = color2grey(io.imread('BR.png'))
-target = color2grey(io.imread('C.png'))
-
-## Set 2
-#to_warp = color2grey(io.imread('w1c.png'))
-#target = color2grey(io.imread('w0c.png'))
-
-# get correspondences
-corrs = read_json()
-
-
-### manually compare w3c.png and w0c.png set 1
-#points_p = corrs[0][1][1] 
-#points = corrs[0][0][1] # 
-
-### manually compare my_images TR -> C
-#points = corrs[0][0][1] # 
-#points_p = corrs[0][1][1] #
-
-## manually compare my_images B -> C
-points = corrs[3][0][1] # 
-points_p = corrs[3][1][1] #
-
-### manually compare my_images BR -> C
-#points = corrs[2][0][1] # 
-#points_p = corrs[2][1][1] #
+    
 
 
-## manually compare w3c.png and w0c.png set 2
-#points = corrs[1][1][1] # image to warp
-#points_p = corrs[1][0][1] # anchor
+# Reading all json files taken from:
+# https://stackoverflow.com/questions/30539679/python-read-several-json-files-from-a-folder
+file_names = []
+path_to_json = './'
+
+# Find all JSON files in current directory
+for file_name in [file for file in os.listdir(path_to_json) if file.endswith('.json')]:
+  file_names.append(file_name)
+  #with open(path_to_json + file_name) as json_file:
+  #  data = json.load(json_file)
+  #  #print(data)
+  
+num_files = len(file_names)
+
+print(f"Found {num_files} JSON files in current directory:")
+for ii in range(len(file_names)):
+    print(f"{ii}:\t{file_names[ii]}")
+
+# Iterate over json files in current directory
+for json_file in range(len(file_names)):
+    
+    # Read all correspondence sets for current JSON files
+    print(f"\n\nReading json file _____x")
+    corrs =  read_json_file(file_names[json_file])
+
+    mosaic = []
+    full = []
+    
+    # Iterate over each set of correspondences
+    for ii in range(len(corrs)):
+
+        
+        # Parse file name in current directory
+        imageNamea = corrs[ii][0][0]
+        imageNameb = corrs[ii][1][0]
+        imageNamea = imageNamea.split('.')
+        imageNameb = imageNameb.split('.')
+        
+        # Read PNG image files for target image to warp to and image to be warped
+        target = io.imread(imageNamea[0]+'.png')
+        to_warp = io.imread(imageNameb[0]+'.png')
+
+        if( target.ndim > 2):
+            print("Converting target to greyscale...")
+            target = color2grey(target)
+        if( to_warp.ndim > 2):
+            print("Converting to_warp to greyscale...")            
+            to_warp = color2grey(to_warp)
+        
+        print(f"\n\nFound images:\n{imageNameb[0]}.png\n{imageNamea[0]}.png")
+        print(f"Warping {imageNameb[0]}.png to fit {imageNamea[0]}.png...\n")
+        
+        # Assign correspondences to forward and backward sets, ie (x, x_prime)
+        points = corrs[ii][1][1] # 
+        points_p = corrs[ii][0][1] #
+
+        # Get tranformation matrix P
+        P = get_transform(points, points_p)
+        
+        # Get backward transform matrix
+        P_back = get_transform(points_p, points)
+
+        # Get a representation of the polygon of the to_warp image
+        poly, x_len, y_len = get_poly_dim(to_warp, P)
+        poly_yx = conv_poly(poly)
+
+        
+        canvas = build_canvas(to_warp, target, P, poly, dbg = 0)
+        canvas_poly = np.array(canvas)
+
+        orig_x = 2*target.shape[1]
+        orig_y = 2*target.shape[0]        
+
+        if(len(mosaic) == 0):
+            mosaic = get_poly(target, to_warp, P, P_back, canvas)
+        else:
+            mosaic = get_poly(target, to_warp, P, P_back, canvas)
+
+        
+        if(len(full) == 0):
+            full = np.array(mosaic)            
+        else:
+            full = mosaic + full            
+
+        code.interact(local=locals())
+        
+
+        
+    
+code.interact(local=locals())
 
 
-# Get tranformation matrix P
-P = get_transform(points, points_p)
-
-# Get backward transform matrix
-P_back = get_transform(points_p, points)
-
-# Get a representation of the polygon of the to_warp image
-poly, x_len, y_len = get_poly_dim(to_warp, P)
-poly_yx = conv_poly(poly)
-
-canvas = build_canvas(to_warp, target, P, poly, dbg = 0)
-canvas_poly = np.array(canvas)
-
-tar_len_x = to_warp.shape[1]
-tar_len_y = to_warp.shape[0]
+#tar_len_x = to_warp.shape[1]
+#tar_len_y = to_warp.shape[0]
 
 orig_x = x_len
 orig_y = y_len
@@ -303,31 +362,22 @@ for ii in range(tar_len_x):
         #get new transformed coordinate
         new_tmp_cord = map_xy(ii, jj, P)
         canvas_poly[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = 255        
-        tst_canvas1[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[tar_len_y - jj -1, tar_len_x - ii -1]
-        tst_canvas2[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[jj, ii]        
+        #tst_canvas1[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[tar_len_y - jj -1, tar_len_x - ii -1]
+        #tst_canvas2[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[jj, ii]        
 
         
 mask = np.array(canvas_poly)
 mask[mask > 0] = 255
-
 k_sz = 11
 
 kern = np.full((k_sz, k_sz), 1/(k_sz*k_sz))
 polygon = scipy.ndimage.filters.convolve(mask, kern)
 final_mask = np.array(polygon)
 final_mask[final_mask > 0] = 255
+
 H, edges = np.histogram(polygon, bins = 256)
 
 reverse_canvas = np.array(final_mask)
-
-tar_cpy = np.array(target)
-
-TL = map_xy(poly[0][0], poly[0][1], P_back)
-TR = map_xy(poly[1][0], poly[1][1], P_back)
-BR = map_xy(poly[2][0], poly[2][1], P_back)
-BL = map_xy(poly[3][0], poly[3][1], P_back)
-
-#code.interact(local=locals())
 
 for ii in range(canvas.shape[1]-1):
     for jj in range(canvas.shape[0]-1):
@@ -351,73 +401,6 @@ for ii in range(canvas.shape[1]-1):
 code.interact(local=locals())
 
 exit()
-
-
-
-# Test transform by mapping to_warp correspondences to target
-x = []
-y = []
-xp = []
-yp = []
-
-for ii in range(len(points)):
-    x.append(points[ii][0])
-    y.append(points[ii][1])
-    xp.append(points_p[ii][0])
-    yp.append(points_p[ii][1])
-
-#  convert to numpy
-x = np.asarray(x)
-y = np.asarray(y)
-xp = np.asarray(xp)
-yp = np.asarray(yp)
-
-
-c0 = map_xy(x[0], y[0], P)
-#c1 = map_xy(x[1], y[1], P)
-#c2 = map_xy(x[2], y[2], P)
-#c3 = map_xy(x[3], y[3], P)
-#c4 = map_xy(x[4], y[4], P)
-#c5 = map_xy(x[5], y[5], P)
-
-#c0 = -1*c0
-#c1 = -1*c1
-#c2 = -1*c2
-#c3 = -1*c3
-#c4 = -1*c4
-#c5 = -1*c5
-
-
-
-sz = 2
-tst_target = np.array(target)
-tst_target[c0[1]-sz:c0[1]+sz , c0[0]-sz:c0[0]+sz] = 0
-#tst_target[c1[1]-sz:c1[1]+sz , c1[0]-sz:c1[0]+sz] = 0
-#tst_target[c2[1]-sz:c2[1]+sz , c2[0]-sz:c2[0]+sz] = 0
-#tst_target[c3[1]-sz:c3[1]+sz , c3[0]-sz:c3[0]+sz] = 0
-#tst_target[c4[1]-sz:c4[1]+sz , c4[0]-sz:c4[0]+sz] = 0
-#tst_target[c5[1]-sz:c5[1]+sz , c5[0]-sz:c5[0]+sz] = 0
-
-# get_transform
-# draw_poly
-# get_backward_transform
-# populate_poly
-
-#tar_len_x = to_warp.shape[1]
-#tar_len_y = to_warp.shape[0]
-#
-#for ii in range(tar_len_x):
-#    for jj in range(tar_len_y):
-#
-#        #get new transformed coordinate
-#        new_tmp_cord = map_xy(ii, jj, P)
-#        canvas[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[tar_len_y - jj -1, tar_len_x - ii -1]
-#
-#plt.show()
-#plt.imshow(canvas, cmap='gray')
-#plt.show()
-
-code.interact(local=locals())    
 
 
 
