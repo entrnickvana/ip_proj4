@@ -241,7 +241,7 @@ my_img_BR = color2grey(io.imread("office_png/BR.png"))
 #target = color2grey(io.imread('w0c.png'))
 
 ## My images
-to_warp = color2grey(io.imread('TL.png'))
+to_warp = color2grey(io.imread('BR.png'))
 target = color2grey(io.imread('C.png'))
 
 ## Set 2
@@ -261,8 +261,12 @@ corrs = read_json()
 #points_p = corrs[0][1][1] #
 
 ## manually compare my_images B -> C
-points = corrs[2][0][1] # 
-points_p = corrs[2][1][1] #
+points = corrs[3][0][1] # 
+points_p = corrs[3][1][1] #
+
+### manually compare my_images BR -> C
+#points = corrs[2][0][1] # 
+#points_p = corrs[2][1][1] #
 
 
 ## manually compare w3c.png and w0c.png set 2
