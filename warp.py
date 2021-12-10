@@ -3,6 +3,7 @@ import os
 import skimage
 from skimage import io
 import scipy
+from scipy import interpolate
 from scipy import fftpack
 import matplotlib.pyplot as plt
 import numpy as np
@@ -69,6 +70,28 @@ def map_xy(x, y, P):
     #print(f"xp int: {xp}")
     #print(f"yp int: {yp}")
     return xp, yp
+
+def map_xy_interp(x, y, P):
+    p11 = P[0, 0]
+    p12 = P[0, 1]
+    p13 = P[0, 2]
+    p21 = P[1, 0]
+    p22 = P[1, 1]
+    p23 = P[1, 2]
+    p31 = P[2, 0]
+    p32 = P[2, 1]
+    p33 = 1
+
+    xp_float = (p11*x + p12*y + p13)/(p31*x + p32*y + 1)
+    yp_float = (p21*x + p22*y + p23)/(p31*x + p32*y + 1)
+    #print(f"xp float: {xp_float}")
+    #print(f"yp float: {yp_float}")    
+    #xp = int(xp_float)
+    #yp = int(yp_float)    
+    #print(f"xp int: {xp}")
+    #print(f"yp int: {yp}")
+    return xp_float, yp_float
+
 
 def conv_poly(poly):
     new_poly = [[],[],[],[]]
@@ -230,17 +253,24 @@ def get_poly(target, to_warp, P, P_back,  canvas):
     final_mask[final_mask > 0] = 255
 
     reverse_canvas = np.array(final_mask)
-
+    #reverse_canvas2 = np.array(final_mask)    
+    f = interpolate.interp2d(np.arange(to_warp.shape[1]), np.arange(to_warp.shape[0]), to_warp)                                            
     for ii in range(canvas.shape[1]-1):
         for jj in range(canvas.shape[0]-1):
             if(final_mask[jj,ii] == 255):
-                backward_cord = map_xy(ii-orig_x-1, jj-orig_y-1, P_back)
+
+                #backward_cord = map_xy(ii-orig_x-1, jj-orig_y-1, P_back)
+                backward_cord = map_xy_interp(ii-orig_x-1, jj-orig_y-1, P_back)
+                #backward_cord2 = map_xy(ii-orig_x-1, jj-orig_y-1, P_back)                
                 if(backward_cord[0] >= 0 and backward_cord[1] >= 0):
                     if(backward_cord[0] < to_warp.shape[1] -1 and backward_cord[1] < to_warp.shape[0]-1):
+                        #if( (ii >=  orig_x or ii < orig_x + target.shape[1]) and (jj >=  orig_y or jj < orig_y + target.shape[0])):
                         #print(f"Poly idx x: {ii} idx y: {jj}")                    
                         #print(f"Grabbing index y: {backward_cord[1]} x: {backward_cord[0]}")
                         #print(f"\n\n")
-                        reverse_canvas[jj, ii] = to_warp[backward_cord[1], backward_cord[0]]
+                        interp_val = np.round(f(backward_cord[0], backward_cord[1]))
+                        #reverse_canvas[jj, ii] = to_warp[backward_cord[1], backward_cord[0]]
+                        reverse_canvas[jj, ii] = interp_val
                     else:
                         reverse_canvas[jj, ii] = 0
                 else:
