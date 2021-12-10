@@ -45,6 +45,14 @@ import json
 #(12, 2)
 #The output file is mosaic_out.tif
 
+def gs2(muu, sg, w, h):
+    w_half = np.int(w/2)
+    h_half = np.int(h/2)
+    x, y = np.meshgrid(np.linspace(-1,1,w), np.linspace(-1,1,h))
+    z = np.sqrt(x*x + y*y)
+    sigma = 1
+    gauss1 = np.exp(-1*((z-muu)**2 / (2.0 * sg**2)))
+    return gauss1
 
 def color2grey(img):
     b = [.3, .6, .1]
@@ -63,12 +71,9 @@ def map_xy(x, y, P):
 
     xp_float = (p11*x + p12*y + p13)/(p31*x + p32*y + 1)
     yp_float = (p21*x + p22*y + p23)/(p31*x + p32*y + 1)
-    #print(f"xp float: {xp_float}")
-    #print(f"yp float: {yp_float}")    
+
     xp = int(xp_float)
     yp = int(yp_float)    
-    #print(f"xp int: {xp}")
-    #print(f"yp int: {yp}")
     return xp, yp
 
 def map_xy_interp(x, y, P):
@@ -84,12 +89,6 @@ def map_xy_interp(x, y, P):
 
     xp_float = (p11*x + p12*y + p13)/(p31*x + p32*y + 1)
     yp_float = (p21*x + p22*y + p23)/(p31*x + p32*y + 1)
-    #print(f"xp float: {xp_float}")
-    #print(f"yp float: {yp_float}")    
-    #xp = int(xp_float)
-    #yp = int(yp_float)    
-    #print(f"xp int: {xp}")
-    #print(f"yp int: {yp}")
     return xp_float, yp_float
 
 
@@ -146,12 +145,8 @@ def build_canvas(to_warp, target, P, poly, dbg=0):
 
     tar_x_len = target.shape[1]
     tar_y_len = target.shape[0]
-    #max_x_len = max([x_len, tar_x_len])
-    #max_y_len = max([y_len, tar_y_len])    
     
     canvas = np.zeros((5*tar_y_len, 5*tar_x_len))
-    #orig_x = x_len
-    #orig_y = y_len
     orig_x = 2*tar_x_len
     orig_y = 2*tar_y_len
     
@@ -235,53 +230,78 @@ def get_poly(target, to_warp, P, P_back,  canvas):
     
     for ii in range(tar_len_x):
         for jj in range(tar_len_y):
-    
+            
             #get new transformed coordinate
             new_tmp_cord = map_xy(ii, jj, P)
-            canvas_poly[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = 255        
-            #tst_canvas1[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[tar_len_y - jj -1, tar_len_x - ii -1]
-            #tst_canvas2[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[jj, ii]        
+            canvas_poly[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = 255
     
-            
+    # Create a mask of warped image polygon            
     mask = np.array(canvas_poly)
     mask[mask > 0] = 255
+
+    # Create an averaging kernel to convolve with sparsely populated areas of polygon
     k_sz = 11
-    
     kern = np.full((k_sz, k_sz), 1/(k_sz*k_sz))
     polygon = scipy.ndimage.filters.convolve(mask, kern)
+
+    # Threshold polygon to iterate over to sample values using backward transform
     final_mask = np.array(polygon)
     final_mask[final_mask > 0] = 255
+    to_warp_mask = np.array(final_mask)
+    to_warp_mask[to_warp_mask > 0] = 1
 
+    target_mask = np.array(canvas)
+    target_mask[orig_y: orig_y + target.shape[0], orig_x: orig_x + target.shape[1]] = 1
+    union = to_warp_mask * target_mask
+    union[union > 0] = 1
+    r = np.random.rand(union.shape[0], union.shape[1])
+    g = gs2(0, .25, union.shape[1], union.shape[0])
+    rand_gauss = r*g
+    rand_gauss[r > g] = 0
+    rand_gauss[rand_gauss > 0] = 1
+    rand_union = rand_gauss*union
+
+    code.interact(local=locals())
+    
+    # Create boolean 'AND' mask or union of to_warp polygon and target image as a mask
+
+
+    # Creat a copy to populate
     reverse_canvas = np.array(final_mask)
-    #reverse_canvas2 = np.array(final_mask)    
-    f = interpolate.interp2d(np.arange(to_warp.shape[1]), np.arange(to_warp.shape[0]), to_warp)                                            
+
+    # Create an interpolation scheme to correctly populate canvas/mosaic indices from original to warp image
+    f = interpolate.interp2d(np.arange(to_warp.shape[1]), np.arange(to_warp.shape[0]), to_warp)
+
+    # iterate over columns (values of X)
     for ii in range(canvas.shape[1]-1):
+
+        # iterate over rows (values of Y)        
         for jj in range(canvas.shape[0]-1):
+
+            # Find indices in polygon
             if(final_mask[jj,ii] == 255):
 
-                #backward_cord = map_xy(ii-orig_x-1, jj-orig_y-1, P_back)
+                # Backward map points in warped image polygon back to original image
                 backward_cord = map_xy_interp(ii-orig_x-1, jj-orig_y-1, P_back)
-                #backward_cord2 = map_xy(ii-orig_x-1, jj-orig_y-1, P_back)                
+                #backward_cord2 = map_xy(ii-orig_x-1, jj-orig_y-1, P_back)
+
+                # Check if coordinate maps from polygon back to interpolated original
                 if(backward_cord[0] >= 0 and backward_cord[1] >= 0):
                     if(backward_cord[0] < to_warp.shape[1] -1 and backward_cord[1] < to_warp.shape[0]-1):
-                        #if( (ii >=  orig_x or ii < orig_x + target.shape[1]) and (jj >=  orig_y or jj < orig_y + target.shape[0])):
-                        #print(f"Poly idx x: {ii} idx y: {jj}")                    
-                        #print(f"Grabbing index y: {backward_cord[1]} x: {backward_cord[0]}")
-                        #print(f"\n\n")
+                        if( union[jj, ii] == 1):
+                            if(rand_union[jj, ii] == 1):
+                                reverse_canvas[jj, ii] = target[orig]                                
+                                
+                        # Calculate interpolated value
                         interp_val = np.round(f(backward_cord[0], backward_cord[1]))
                         #reverse_canvas[jj, ii] = to_warp[backward_cord[1], backward_cord[0]]
                         reverse_canvas[jj, ii] = interp_val
                     else:
-                        reverse_canvas[jj, ii] = 0
+                        reverse_canvas[jj, ii] = 0 # Overwrite mask values
                 else:
-                    reverse_canvas[jj, ii] = 0
-    
-                #final_mask[jj,ii] = 64
+                    reverse_canvas[jj, ii] = 0  # Overwrite mask values
     
     return reverse_canvas
-    
-
-    
 
 
 # Reading all json files taken from:
@@ -292,12 +312,11 @@ path_to_json = './'
 # Find all JSON files in current directory
 for file_name in [file for file in os.listdir(path_to_json) if file.endswith('.json')]:
   file_names.append(file_name)
-  #with open(path_to_json + file_name) as json_file:
-  #  data = json.load(json_file)
-  #  #print(data)
-  
+
+# Calculate number of files
 num_files = len(file_names)
 
+# List JSON files in directory
 print(f"Found {num_files} JSON files in current directory:")
 for ii in range(len(file_names)):
     print(f"{ii}:\t{file_names[ii]}")
@@ -314,7 +333,6 @@ for json_file in range(len(file_names)):
     
     # Iterate over each set of correspondences
     for ii in range(len(corrs)):
-
         
         # Parse file name in current directory
         imageNamea = corrs[ii][0][0]
@@ -326,13 +344,14 @@ for json_file in range(len(file_names)):
         target = io.imread(imageNamea[0]+'.png')
         to_warp = io.imread(imageNameb[0]+'.png')
 
+        # Convert images to grayscale
         if( target.ndim > 2):
             print("Converting target to greyscale...")
             target = color2grey(target)
         if( to_warp.ndim > 2):
             print("Converting to_warp to greyscale...")            
             to_warp = color2grey(to_warp)
-        
+
         print(f"\n\nFound images:\n{imageNameb[0]}.png\n{imageNamea[0]}.png")
         print(f"Warping {imageNameb[0]}.png to fit {imageNamea[0]}.png...\n")
         
@@ -350,18 +369,13 @@ for json_file in range(len(file_names)):
         poly, x_len, y_len = get_poly_dim(to_warp, P)
         poly_yx = conv_poly(poly)
 
-        
         canvas = build_canvas(to_warp, target, P, poly, dbg = 0)
         canvas_poly = np.array(canvas)
 
         orig_x = 2*target.shape[1]
         orig_y = 2*target.shape[0]        
 
-        if(len(mosaic) == 0):
-            mosaic = get_poly(target, to_warp, P, P_back, canvas)
-        else:
-            mosaic = get_poly(target, to_warp, P, P_back, canvas)
-
+        mosaic = get_poly(target, to_warp, P, P_back, canvas)
         
         if(len(full) == 0):
             full = np.array(mosaic)            
@@ -369,70 +383,8 @@ for json_file in range(len(file_names)):
             full = mosaic + full            
 
         code.interact(local=locals())
-        
-
-        
     
 code.interact(local=locals())
-
-
-#tar_len_x = to_warp.shape[1]
-#tar_len_y = to_warp.shape[0]
-
-orig_x = x_len
-orig_y = y_len
-
-tst_canvas1 = np.array(canvas)
-tst_canvas2 = np.array(canvas)
-
-
-for ii in range(tar_len_x):
-    for jj in range(tar_len_y):
-
-        #get new transformed coordinate
-        new_tmp_cord = map_xy(ii, jj, P)
-        canvas_poly[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = 255        
-        #tst_canvas1[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[tar_len_y - jj -1, tar_len_x - ii -1]
-        #tst_canvas2[orig_y + new_tmp_cord[1], orig_x + new_tmp_cord[0]] = to_warp[jj, ii]        
-
-        
-mask = np.array(canvas_poly)
-mask[mask > 0] = 255
-k_sz = 11
-
-kern = np.full((k_sz, k_sz), 1/(k_sz*k_sz))
-polygon = scipy.ndimage.filters.convolve(mask, kern)
-final_mask = np.array(polygon)
-final_mask[final_mask > 0] = 255
-
-H, edges = np.histogram(polygon, bins = 256)
-
-reverse_canvas = np.array(final_mask)
-
-for ii in range(canvas.shape[1]-1):
-    for jj in range(canvas.shape[0]-1):
-        if(final_mask[jj,ii] == 255):
-            backward_cord = map_xy(ii-orig_x-1, jj-orig_y-1, P_back)
-            if(backward_cord[0] >= 0 and backward_cord[1] >= 0):
-                if(backward_cord[0] < to_warp.shape[1] -1 and backward_cord[1] < to_warp.shape[0]-1):
-                    #print(f"Poly idx x: {ii} idx y: {jj}")                    
-                    #print(f"Grabbing index y: {backward_cord[1]} x: {backward_cord[0]}")
-                    #print(f"\n\n")
-                    reverse_canvas[jj, ii] = to_warp[backward_cord[1], backward_cord[0]]
-                else:
-                    reverse_canvas[jj, ii] = 0
-            else:
-                reverse_canvas[jj, ii] = 0
-
-            final_mask[jj,ii] = 64 
-            #if(jj % 20 == 0):
-            #    code.interact(local=locals())            
-
-code.interact(local=locals())
-
-exit()
-
-
 
 
             
