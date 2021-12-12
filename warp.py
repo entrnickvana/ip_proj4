@@ -58,6 +58,43 @@ def color2grey(img):
     b = [.3, .6, .1]
     return np.dot(img[...,:3], b)
 
+def crop_img(img):
+
+    new_img = np.array(img)
+
+    for yy_top in range(new_img.shape[0]):
+        sum = np.sum(new_img[yy_top, ::])
+        if(sum > 0):
+            yt = yy_top
+            print(f"yt: {yt}")
+            break
+        
+    for yy_btm in range(new_img.shape[0]):
+        sum = np.sum(new_img[new_img.shape[0] - yy_btm - 1, ::])
+        if(sum > 0):
+            yb = new_img.shape[0] - yy_btm - 1
+            print(f"yb: {yb}")            
+            break
+
+    for xx_left in range(new_img.shape[1]):
+        sum = np.sum(new_img[::, xx_left])
+        if(sum > 0):
+            xl = xx_left
+            print(f"xl: {xl}")                        
+            break
+
+    for xx_right in range(new_img.shape[1]):
+        sum = np.sum(new_img[::, new_img.shape[1] - xx_right - 1])
+        if(sum > 0):
+            xr = new_img.shape[1] - xx_right - 1
+            print(f"xr: {xr}")                        
+            break
+
+    
+    new_img = new_img[yt:yb, xl:xr]
+    return new_img
+      
+
 def map_xy(x, y, P):
     p11 = P[0, 0]
     p12 = P[0, 1]
@@ -255,22 +292,27 @@ def get_poly(target, to_warp, P, P_back,  canvas):
     union = to_warp_mask * target_mask
     union[union > 0] = 1
     r = np.random.rand(union.shape[0], union.shape[1])
-    g = gs2(0, .25, union.shape[1], union.shape[0])
+    g = gs2(0, .1, union.shape[1], union.shape[0])
     rand_gauss = r*g
     rand_gauss[r > g] = 0
     rand_gauss[rand_gauss > 0] = 1
     rand_union = rand_gauss*union
+    #target_canvas = np.array(canvas)
+    #target_canvas = 
 
-    code.interact(local=locals())
+    #code.interact(local=locals())
     
     # Create boolean 'AND' mask or union of to_warp polygon and target image as a mask
 
-
     # Creat a copy to populate
     reverse_canvas = np.array(final_mask)
+    final_canvas = np.array(canvas)
+    reverse_canvas[orig_y:orig_y + target.shape[0], orig_x:orig_x + target.shape[1]] = target
+    #final_canvas[orig_y:orig_y + target.shape[0], orig_x:orig_x + target.shape[1]] = target
 
     # Create an interpolation scheme to correctly populate canvas/mosaic indices from original to warp image
     f = interpolate.interp2d(np.arange(to_warp.shape[1]), np.arange(to_warp.shape[0]), to_warp)
+    
 
     # iterate over columns (values of X)
     for ii in range(canvas.shape[1]-1):
@@ -288,20 +330,38 @@ def get_poly(target, to_warp, P, P_back,  canvas):
                 # Check if coordinate maps from polygon back to interpolated original
                 if(backward_cord[0] >= 0 and backward_cord[1] >= 0):
                     if(backward_cord[0] < to_warp.shape[1] -1 and backward_cord[1] < to_warp.shape[0]-1):
-                        if( union[jj, ii] == 1):
-                            if(rand_union[jj, ii] == 1):
-                                reverse_canvas[jj, ii] = target[orig]                                
-                                
-                        # Calculate interpolated value
+                        
                         interp_val = np.round(f(backward_cord[0], backward_cord[1]))
-                        #reverse_canvas[jj, ii] = to_warp[backward_cord[1], backward_cord[0]]
-                        reverse_canvas[jj, ii] = interp_val
+                        
+                        if( jj > orig_y and ii > orig_x):
+                            
+                            if(jj - orig_y < target.shape[0] and ii - orig_x < target.shape[1]):
+                                reverse_canvas[jj, ii] = ( (1 - g[jj,ii]) * interp_val ) + ( g[jj, 11] * target[jj-orig_y, ii-orig_x] )
+                                a = 1-g[jj, ii]
+                                b = 1 - a
+                                final_canvas[jj, ii] = (a * interp_val ) + ( b * target[jj-orig_y, ii-orig_x] )
+                                #print(f"jj: {jj}              ii: {ii} ")                                
+                                #print(f"a: {(1 - g[jj,ii])}\t\tb:  {g[jj, 11]}")
+                                #reverse_canvas[jj, ii] = ( (1 - g[jj,ii]) * interp_val ) #+ ( g[jj, 11] * target[jj-orig_y, ii-orig_x] )
+                                #final_canvas[jj, ii] = ( (1 - g[jj,ii]) * interp_val ) #+ ( g[jj, 11] * target[jj-orig_y, ii-orig_x] )                                
+                                #reverse_canvas[jj, ii] = 0.5 * (interp_val + target[jj-orig_y, ii-orig_x])
+                                #final_canvas[jj, ii] = 0.5 * (interp_val + target[jj-orig_y, ii-orig_x])
+                            else:
+                                reverse_canvas[jj, ii] = interp_val
+                                final_canvas[jj, ii] = interp_val                                
+                        else:
+                            
+                            #reverse_canvas[jj, ii] = to_warp[backward_cord[1], backward_cord[0]]
+                            reverse_canvas[jj, ii] = interp_val
+                            final_canvas[jj, ii] = interp_val                            
+                            
                     else:
                         reverse_canvas[jj, ii] = 0 # Overwrite mask values
                 else:
                     reverse_canvas[jj, ii] = 0  # Overwrite mask values
+    #code.interact(local=locals())
     
-    return reverse_canvas
+    return final_canvas
 
 
 # Reading all json files taken from:
@@ -330,6 +390,7 @@ for json_file in range(len(file_names)):
 
     mosaic = []
     full = []
+    pieces = []
     
     # Iterate over each set of correspondences
     for ii in range(len(corrs)):
@@ -376,13 +437,38 @@ for json_file in range(len(file_names)):
         orig_y = 2*target.shape[0]        
 
         mosaic = get_poly(target, to_warp, P, P_back, canvas)
-        
-        if(len(full) == 0):
-            full = np.array(mosaic)            
-        else:
-            full = mosaic + full            
+        pieces.append(mosaic)
 
-        code.interact(local=locals())
+        #code.interact(local=locals())
+
+    full = np.array(pieces[0])
+        
+    for kk in range(len(pieces)-1):
+        print(f"image: {kk+1}")
+
+        # Find overlap between mosaic and next piece
+        overlap = full * pieces[kk+1]
+        
+        overlap[overlap > 0] = 1
+        overlap_neg = (-1 *overlap) + 1
+        
+        #full = (overlap*(0.5*(pieces[kk+1] + full))) +  (overlap_neg*full)
+        full = (overlap*full) + (overlap_neg*full) + (overlap_neg*pieces[kk+1])
+        #code.interact(local=locals())
+
+    code.interact(local=locals())        
+    tar_canvas = np.array(canvas)
+    tar_canvas[orig_y:orig_y + target.shape[0], orig_x:orig_x + target.shape[1]] = target        
+    overlap = full * tar_canvas
+    overlap[overlap > 0] = 1
+    overlap = (-1 *overlap) + 1
+    neg = tar_canvas*overlap
+    full = (tar_canvas*overlap) + full
+
+    full_crop = crop_img(full)
+    
+    code.interact(local=locals())    
+
     
 code.interact(local=locals())
 
