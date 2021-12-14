@@ -7,43 +7,17 @@ from scipy import interpolate
 from scipy import fftpack
 import matplotlib.pyplot as plt
 import numpy as np
-#from ip_functions import *
 from skimage import data, filters, color, morphology, exposure, img_as_float, img_as_ubyte, util
 from skimage.util import img_as_ubyte
 from skimage.segmentation import flood, flood_fill
 from skimage.morphology import extrema
 from skimage.exposure import histogram
 from read_json_mod import *
-#from scipy.linalg import svd
 from numpy.linalg import svd
 from poly_perim import *
 import json
-#from lin_trans import *
-
-#The images are ['w0.ppm', 'w1.ppm', 'w2c.ppm', 'w3c.ppm']
-#There are 3 sets of correspondences
-#x3There are 6 correspdondences between image w3c.ppm and image w0c.ppm
-#[[264 369 257 367 152 146]
-# [105  84 252 239 141 242]]
-#[[134 231 132 231  12  11]
-# [ 10   8 128 127  20 110]]
-#(6, 2)
-#(6, 2)
-#There are 13 correspdondences between image w0c.ppm and image w1c.ppm
-#[[434 451 540 550 542 563 454 355 402 535 563 565 566]
-# [  6 136 125  21 222 270 216 244 295 216 267 282 306]]
-#[[ 81 106 210 218 212 243 110   9  63 203 243 246 248]
-# [ 72 227 203  69 328 383 325 360 418 322 383 399 429]]
-#(13, 2)
-#(13, 2)
-#There are 12 correspdondences between image w0c.ppm and image w2c.ppm
-#[[256 313 256 313 145 218 145 218  30  16   3   2]
-# [164 165 196 192 246 246 342 342 221 362 249 340]]
-#[[428 489 425 488 302 382 296 376 174 155 140 139]
-# [107 109 142 141 195 197 299 300 163 317 192 293]]
-#(12, 2)
-#(12, 2)
-#The output file is mosaic_out.tif
+from PIL import Image
+import time
 
 def gs2(muu, sg, w, h):
     w_half = np.int(w/2)
@@ -66,28 +40,24 @@ def crop_img(img):
         sum = np.sum(new_img[yy_top, ::])
         if(sum > 0):
             yt = yy_top
-            print(f"yt: {yt}")
             break
         
     for yy_btm in range(new_img.shape[0]):
         sum = np.sum(new_img[new_img.shape[0] - yy_btm - 1, ::])
         if(sum > 0):
             yb = new_img.shape[0] - yy_btm - 1
-            print(f"yb: {yb}")            
             break
 
     for xx_left in range(new_img.shape[1]):
         sum = np.sum(new_img[::, xx_left])
         if(sum > 0):
             xl = xx_left
-            print(f"xl: {xl}")                        
             break
 
     for xx_right in range(new_img.shape[1]):
         sum = np.sum(new_img[::, new_img.shape[1] - xx_right - 1])
         if(sum > 0):
             xr = new_img.shape[1] - xx_right - 1
-            print(f"xr: {xr}")                        
             break
 
     
@@ -297,19 +267,12 @@ def get_poly(target, to_warp, P, P_back,  canvas):
     rand_gauss[r > g] = 0
     rand_gauss[rand_gauss > 0] = 1
     rand_union = rand_gauss*union
-    #target_canvas = np.array(canvas)
-    #target_canvas = 
-
-    #code.interact(local=locals())
     
     # Create boolean 'AND' mask or union of to_warp polygon and target image as a mask
 
     # Creat a copy to populate
-    reverse_canvas = np.array(final_mask)
     final_canvas = np.array(canvas)
-    reverse_canvas[orig_y:orig_y + target.shape[0], orig_x:orig_x + target.shape[1]] = target
-    #final_canvas[orig_y:orig_y + target.shape[0], orig_x:orig_x + target.shape[1]] = target
-
+    
     # Create an interpolation scheme to correctly populate canvas/mosaic indices from original to warp image
     f = interpolate.interp2d(np.arange(to_warp.shape[1]), np.arange(to_warp.shape[0]), to_warp)
     
@@ -325,7 +288,6 @@ def get_poly(target, to_warp, P, P_back,  canvas):
 
                 # Backward map points in warped image polygon back to original image
                 backward_cord = map_xy_interp(ii-orig_x-1, jj-orig_y-1, P_back)
-                #backward_cord2 = map_xy(ii-orig_x-1, jj-orig_y-1, P_back)
 
                 # Check if coordinate maps from polygon back to interpolated original
                 if(backward_cord[0] >= 0 and backward_cord[1] >= 0):
@@ -336,31 +298,19 @@ def get_poly(target, to_warp, P, P_back,  canvas):
                         if( jj > orig_y and ii > orig_x):
                             
                             if(jj - orig_y < target.shape[0] and ii - orig_x < target.shape[1]):
-                                reverse_canvas[jj, ii] = ( (1 - g[jj,ii]) * interp_val ) + ( g[jj, 11] * target[jj-orig_y, ii-orig_x] )
+                                
+                                #reverse_canvas[jj, ii] = ( (1 - g[jj,ii]) * interp_val ) + ( g[jj, 11] * target[jj-orig_y, ii-orig_x] )
                                 a = 1-g[jj, ii]
                                 b = 1 - a
                                 final_canvas[jj, ii] = (a * interp_val ) + ( b * target[jj-orig_y, ii-orig_x] )
-                                #print(f"jj: {jj}              ii: {ii} ")                                
-                                #print(f"a: {(1 - g[jj,ii])}\t\tb:  {g[jj, 11]}")
-                                #reverse_canvas[jj, ii] = ( (1 - g[jj,ii]) * interp_val ) #+ ( g[jj, 11] * target[jj-orig_y, ii-orig_x] )
-                                #final_canvas[jj, ii] = ( (1 - g[jj,ii]) * interp_val ) #+ ( g[jj, 11] * target[jj-orig_y, ii-orig_x] )                                
-                                #reverse_canvas[jj, ii] = 0.5 * (interp_val + target[jj-orig_y, ii-orig_x])
-                                #final_canvas[jj, ii] = 0.5 * (interp_val + target[jj-orig_y, ii-orig_x])
+
                             else:
-                                reverse_canvas[jj, ii] = interp_val
+                                #reverse_canvas[jj, ii] = interp_val
                                 final_canvas[jj, ii] = interp_val                                
                         else:
                             
-                            #reverse_canvas[jj, ii] = to_warp[backward_cord[1], backward_cord[0]]
-                            reverse_canvas[jj, ii] = interp_val
                             final_canvas[jj, ii] = interp_val                            
                             
-                    else:
-                        reverse_canvas[jj, ii] = 0 # Overwrite mask values
-                else:
-                    reverse_canvas[jj, ii] = 0  # Overwrite mask values
-    #code.interact(local=locals())
-    
     return final_canvas
 
 
@@ -376,6 +326,20 @@ for file_name in [file for file in os.listdir(path_to_json) if file.endswith('.j
 # Calculate number of files
 num_files = len(file_names)
 
+# Print instructions on usage
+
+print(f"\n\n<<<<<<<<< WARNING >>>>>>>>>>>>\n\n")
+print(f"JSON files must specify the center of mosaic first in JSON list hierarchy")
+print(f"Otherwise, warping will happen to the wrong image")
+print(f"\nI have provided appropriately structured JSON files\n\n")
+print(f"\n\n<<<<<<<<< WARNING >>>>>>>>>>>>\n")
+print(f"\nwarp.py will parse ALL JSON files in current directory!\n\n")
+print(f"\n\n<<<<<<<<< WARNING >>>>>>>>>>>>\n")
+print(f"\nMy provided images in bbb_shelf_params.json are large and take")
+print(f"time to process!\n\n")
+time.sleep(5.0)
+
+
 # List JSON files in directory
 print(f"Found {num_files} JSON files in current directory:")
 for ii in range(len(file_names)):
@@ -385,8 +349,8 @@ for ii in range(len(file_names)):
 for json_file in range(len(file_names)):
     
     # Read all correspondence sets for current JSON files
-    print(f"\n\nReading json file _____x")
-    corrs =  read_json_file(file_names[json_file])
+    print(f"\n\nReading json file {file_names[json_file]}...")
+    corrs, output_file =  read_json_file(file_names[json_file])
 
     mosaic = []
     full = []
@@ -431,6 +395,8 @@ for json_file in range(len(file_names)):
         poly_yx = conv_poly(poly)
 
         canvas = build_canvas(to_warp, target, P, poly, dbg = 0)
+        #canvas = build_canvas(to_warp, target, P, poly, dbg = 1)
+        
         canvas_poly = np.array(canvas)
 
         orig_x = 2*target.shape[1]
@@ -438,8 +404,6 @@ for json_file in range(len(file_names)):
 
         mosaic = get_poly(target, to_warp, P, P_back, canvas)
         pieces.append(mosaic)
-
-        #code.interact(local=locals())
 
     full = np.array(pieces[0])
         
@@ -454,9 +418,7 @@ for json_file in range(len(file_names)):
         
         #full = (overlap*(0.5*(pieces[kk+1] + full))) +  (overlap_neg*full)
         full = (overlap*full) + (overlap_neg*full) + (overlap_neg*pieces[kk+1])
-        #code.interact(local=locals())
 
-    code.interact(local=locals())        
     tar_canvas = np.array(canvas)
     tar_canvas[orig_y:orig_y + target.shape[0], orig_x:orig_x + target.shape[1]] = target        
     overlap = full * tar_canvas
@@ -467,10 +429,20 @@ for json_file in range(len(file_names)):
 
     full_crop = crop_img(full)
     
-    code.interact(local=locals())    
+    print(f"Saving output file: {output_file}...")
+
+    # Save output_file as .tif
+    im = Image.fromarray(full_crop)
+    im.save(output_file, cmap='gray')
+
+    #Save output as PNG
+    output_file_png = output_file.split('.')[0]+'.png'        
+    print(f"Saving output file as PNG: {output_file_png}...")        
+    plt.imsave(output_file_png, full_crop, cmap='gray')
+
 
     
-code.interact(local=locals())
+    
 
 
             

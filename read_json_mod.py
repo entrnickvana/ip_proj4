@@ -70,6 +70,6 @@ def read_json_file(file_name):
       #print(corrb.shape)
   #print(f"The output file is {data['Output file']}")
   #return corra, corrb
-  return corrs
+  return corrs, data["Output file"]
 
 
