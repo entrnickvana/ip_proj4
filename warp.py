@@ -14,7 +14,6 @@ from skimage.morphology import extrema
 from skimage.exposure import histogram
 from read_json_mod import *
 from numpy.linalg import svd
-from poly_perim import *
 import json
 from PIL import Image
 import time
